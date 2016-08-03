@@ -1,5 +1,7 @@
 package com.example.aznho.floatyattempt;
 
+import android.*;
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -24,7 +26,6 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -36,14 +37,8 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
-import com.loopj.android.http.JsonHttpResponseHandler;
-import com.loopj.android.http.RequestParams;
-
-import org.json.JSONObject;
 
 import java.util.ArrayList;
-
-import cz.msebera.android.httpclient.Header;
 
 public class MainActivity extends FragmentActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
@@ -65,17 +60,7 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
         button_stop = (Button) findViewById(R.id.button_stop);
         Intent intent = new Intent(this, MainActivity.class);
 
-        boolean permissionGranted = ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        Log.e(TAG, "PermissionGranted for Fine?  "+ Boolean.toString(permissionGranted));
-        if(permissionGranted) {
-            // {Some Code}
-            Log.e(TAG, "PermissionGranted for Fine dont ask");
-        } else {
-
-            Log.e(TAG, "PermissionGranted for Fine try to ask");
-
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 200);
-        }
+        permissionChecksAndPermission();
 
         PendingIntent resultPendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = Floaty.createNotification(this, "Floaty Demo", "Service Running", R.drawable.pokeball, resultPendingIntent);
@@ -129,19 +114,7 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
                     arrayAdapter.notifyDataSetChanged();
                 }
 
-                RequestParams params = new RequestParams("payload", "{\"text\":\"" +item+" at  https://maps.google.com/maps?q=loc:"+Double.toString(latLng.latitude)+","+Double.toString(latLng.longitude)+"\"}");
-
-                SlackWebhookRestClient.post("",params,new JsonHttpResponseHandler() {
-                    @Override
-                    public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
-                        Log.e(TAG, "On Success: "+Integer.toString(statusCode));
-                    }
-
-                    @Override
-                    public void onFailure(int statusCode, Header[] headers, String res, Throwable t) {
-                        Log.e(TAG, "On failure: "+Integer.toString(statusCode) + " response: " + res);
-                    }
-                });
+                JsonPost.makeSlackPost(item, latLng);
             }
         });
 
@@ -186,7 +159,7 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                 .setInterval(10 * 1000)        // 10 seconds, in milliseconds
                 .setFastestInterval(1 * 1000); // 1 second, in milliseconds
-    }
+    }//onCreate()
 
 
     @TargetApi(Build.VERSION_CODES.M)
@@ -198,7 +171,7 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
         } else {
             pokeballFloaty.startService();
         }
-    }
+    }//startFloatyForAboveAndroidL
 
 
     @TargetApi(Build.VERSION_CODES.M)
@@ -212,7 +185,7 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             }
         }
-    }
+    }//onActivityResult
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -223,15 +196,16 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
                 }
             }
         }
-    }
+    }//onRequestPermissionsResult
 
     @Override
     public void onConnected(@Nullable Bundle bundle){
-        Log.i(TAG, "Location services connected. "
-                + " (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION): " + (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
-                + " (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION): " + (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED));
-        if ((checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
-                || (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
+//        Log.i(TAG, "Location services connected. "
+//                + " (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION): " + (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+//                + " (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION): " + (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED));
+//        if ((checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+//                || (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
+        try{
             Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             Log.e(TAG,location == null? "no location" : location.toString());
             if (location == null) {
@@ -240,21 +214,14 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
             else {
                 handleNewLocation(location);
             };
+        }catch(SecurityException e){
         }
-    }
-
-    private void handleNewLocation(Location location) {
-        Log.d(TAG, "handleNewLocation"+location.toString());
-
-        double currentLatitude = location.getLatitude();
-        double currentLongitude = location.getLongitude();
-        latLng = new LatLng(currentLatitude, currentLongitude);
-    }
+    }//onConnected
 
     @Override
     public void onConnectionSuspended(int i) {
         Log.i(TAG, "Location services suspended. Please reconnect.");
-    }
+    }//onConnectionSuspended
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
@@ -268,14 +235,14 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
         } else {
             Log.i(TAG, "Location services connection failed with code " + connectionResult.getErrorCode());
         }
-    }
+    }//onConnectionFailed
 
     @Override
     public void onResume(){
         super.onResume();
 //        setUpMapIfNeeded();
         mGoogleApiClient.connect();
-    }
+    }//onResume
 
     @Override
     protected void onPause() {
@@ -284,11 +251,32 @@ public class MainActivity extends FragmentActivity implements GoogleApiClient.Co
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
             mGoogleApiClient.disconnect();
         }
-    }
+    }//onPause
 
     @Override
     public void onLocationChanged(Location location) {
         Log.d(TAG, "Location services changed.");
         handleNewLocation(location);
-    }
+    }//onLocationChanged
+
+    public void permissionChecksAndPermission(){
+        boolean finePermissionGranted = ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean coarsePermissionGranted = ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        Log.e(TAG, "PermissionGranted for Fine?  "+ Boolean.toString(finePermissionGranted) + "PermissionGranted for Coarse?  "+ Boolean.toString(coarsePermissionGranted));
+        if(finePermissionGranted && coarsePermissionGranted){
+        } else {
+            Log.e(TAG, "getPermissions for gPS");
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 200);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 200);
+        }
+    }//permissionChecksAndPermissionpermissionChecksAndPermission
+
+    private void handleNewLocation(Location location) {
+        Log.d(TAG, "handleNewLocation"+location.toString());
+
+        double currentLatitude = location.getLatitude();
+        double currentLongitude = location.getLongitude();
+        latLng = new LatLng(currentLatitude, currentLongitude);
+    }//handleNewLocation
+
 }
